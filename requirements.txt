@@ -1,0 +1,14 @@
+langchain-google-genai
+langchain-groq
+langchain-community
+PyPDF2  
+faiss-cpu
+google-api-python-client
+google-auth-httplib2 
+google-auth-oauthlib
+python-dotenv
+fastapi
+uvicorn[standard]
+slackclient
+slack_bolt
+slackeventsapi
