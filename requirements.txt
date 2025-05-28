@@ -12,3 +12,4 @@ uvicorn[standard]
 slackclient
 slack_bolt
 slackeventsapi
+msal

@@ -13,7 +13,8 @@ def get_conversational_chain(retriever):
     Instructions:
         - Do not respond to any query with more then 600 words at max.
         - Only use information explicitly stated in the provided context to answer the question.
-        - If the question cannot be answered based on the context, respond clearly and politely that the necessary information is not available in the document.
+        - If the question cannot be answered based on the context, respond clearly and politely that the necessary information is not available in the document and redirect the user to the the link provided below - asking them to raise the ticket on the link below.
+        - Use this redirect link in case no context is available - https://hrsupport.angelone.in/hc/en-us/requests/new?ticket_form_id=5893162753309
         - Do not assume, infer, or fabricate any information that is not directly present in the context.
         - Structure your response for clarity and readability, using bullet points, headings, or code blocks as needed.
         - Keep the answer short and concise, giving only the required information quickly

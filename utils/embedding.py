@@ -17,7 +17,6 @@ def get_pdf_text(pdf_stream):
         if extracted:
             text += extracted
     return text
-
 def get_text_chunks(text):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1500, chunk_overlap=300)
     chunks = text_splitter.split_text(text)
