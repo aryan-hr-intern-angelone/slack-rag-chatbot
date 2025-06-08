@@ -2,4 +2,6 @@
 .env
 credentials.json
 faiss_index
+database.db
+logs
 __pycache__

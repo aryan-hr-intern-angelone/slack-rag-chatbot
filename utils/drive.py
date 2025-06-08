@@ -5,35 +5,11 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
 from utils.embedding import get_pdf_text, get_text_chunks, get_vector_store, delete_index
-from config.env import env
 
-# Access Scopes
 SCOPES = [
   "https://www.googleapis.com/auth/drive.readonly",
   "https://www.googleapis.com/auth/drive.metadata.readonly",
 ]
-
-start_page_token = None
-
-def load_start_token():
-    global start_page_token
-    try:
-        if start_page_token is None:
-            cred, _ = google.auth.default()
-            service = build('drive', 'v3', credentials=cred)
-            result = service.changes().getStartPageToken().execute()
-            start_page_token = result['startPageToken']
-        return start_page_token
-    except Exception as e:
-        print(f"Failed to load start token: {e}")
-        return None
-
-def save_start_token(token):
-    global start_page_token
-    try:
-        start_page_token = token
-    except Exception as e:
-        print(f"Failed to save start token: {e}")
 
 start_page_token = None
 
@@ -76,10 +52,14 @@ def handle_drive_notification():
       for change in response.get('changes', []):
           file_id = change['fileId']
           file_removed = change['removed']
+
           if file_removed:
-            delete_index("llama-3", file_id)
+              print("File Deleted")
+              delete_index("llama-3", file_id)
           else:
-            generate_file_index(file_id)
+              file_name = change.get("file").get("name")
+              print(f"File Added - {file_name}")
+              generate_file_index(file_id)
 
       new_token = response.get('newStartPageToken')
       if new_token:
@@ -100,7 +80,7 @@ def setup_change_watch():
         request_body = {
           "id": "hif39g",
           "type": "web_hook",
-          "address": env.CUSTOM_WEBHOOK_URL,
+          "address": "https://api.neo-test.in/drive/callback",
           "expiration": custom_expiration
         }
 
@@ -144,21 +124,21 @@ def generate_file_index(file_id):
         if file_metadata["mimeType"] == "application/pdf":
             text = get_pdf_text(file)
             chunks = get_text_chunks(text)
-            get_vector_store(chunks, "llama-3", file_id)
+            get_vector_store(chunks, "llama-3", file_id, file_metadata["name"])
             print("indexing completed")
         elif file_metadata["mimeType"] == "text/plain":
             text = file.getvalue().decode("utf-8")
             chunks = get_text_chunks(text)
-            get_vector_store(chunks, "llama-3", file_id)
+            get_vector_store(chunks, "llama-3", file_id, file_metadata["name"])
             print("indexing completed")
 
     except HttpError as error:
        print(f"An error occurred: {error}")
        file = None
 
-    return file.getvalue()
-    
-def main():
+    return file.getvalue()   
+
+def run():
   """Shows basic usage of the Drive v3 API.
   Prints the names and ids of the first 10 files the user has access to.
   """
@@ -168,16 +148,15 @@ def main():
     # creates api client
     service = build("drive", "v3", credentials=cred)
 
-    # Get all available folders
-    folders = service.files().list(q="mimeType='application/vnd.google-apps.folder' and trashed=false", pageSize=10, fields="nextPageToken, files(id, name)").execute()
+    # Call the Drive v3 API
+    folders = service.files().list(q="mimeType='application/vnd.google-apps.folder' and trashed=false", pageSize=40, fields="nextPageToken, files(id, name)").execute()
     folder = folders.get("files", [])
     
     print(f"Folder: {folder[0]['name']}")
 
-    # Get first 10 files in the target folder
     results = (
         service.files()
-        .list(q=f"'{folder[0]["id"]}' in parents", pageSize=10, fields="nextPageToken, files(id, name)")
+        .list(q=f"'{folder[0]['id']}' in parents", pageSize=100, fields="nextPageToken, files(id, name)")
         .execute()
     )
     items = results.get("files", [])
@@ -189,7 +168,7 @@ def main():
     print(f"Total Files: {len(items)}")
     for item in items:
       print(item)
-      print(f"Downlading: {item["name"]}")
+      print(f"Downlading: {item['name']}")
       try:
         generate_file_index(item["id"])
       except:
@@ -199,6 +178,4 @@ def main():
     print(f"An error occurred: {error}")
 
 if __name__ == "__main__":
-  # for testing
-  main()
-  setup_change_watch()
+  run()

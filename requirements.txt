@@ -1,5 +1,7 @@
 langchain-google-genai
 langchain-groq
+langchain-cohere
+langchain-openai
 langchain-community
 PyPDF2  
 faiss-cpu
@@ -13,3 +15,11 @@ slackclient
 slack_bolt
 slackeventsapi
 msal
+pymupdf4llm
+matplotlib
+umap-learn
+pandas
+numpy
+boto3
+semantic-router
+sqlalchemy

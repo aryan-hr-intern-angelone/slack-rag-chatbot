@@ -1,35 +1,70 @@
 import os
 from PyPDF2 import PdfReader
+import fitz
+import pymupdf4llm
+from langchain.schema import Document
+from langchain.vectorstores.utils import DistanceStrategy
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_cohere import CohereEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from dotenv import load_dotenv
-
-load_dotenv()
+from config.env import env
 
 doc_metadata = {}
 
 def get_pdf_text(pdf_stream):
-    text = ""
-    pdf_reader = PdfReader(pdf_stream)
-    for page in pdf_reader.pages:
-        extracted = page.extract_text()
-        if extracted:
-            text += extracted
-    return text
+    try:
+        stream = fitz.open(stream=pdf_stream, filetype="pdf")
+        md_text = pymupdf4llm.to_markdown(stream)
+        return md_text
+    except Exception as e:    
+        print(e)
+
+# def get_pdf_text(pdf_stream):
+#     text = ""
+#     # print("reading pdf stream")
+#     # pdf_reader = PdfReader(pdf_stream)
+#     # for page in pdf_reader.pages:
+#     #     extracted = page.extract_text()
+#     #     if extracted:
+#     #         text += extracted
+#     try:
+#         stream = fitz.open(stream=pdf_stream, filetype="pdf")
+#         md_text = pymupdf4llm.to_markdown(stream)
+#         return md_text
+#     except Exception as e:
+#         print(e)
+#     # return text
+    
 def get_text_chunks(text):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1500, chunk_overlap=300)
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1024,
+        chunk_overlap=128,
+        separators=["\n\n", "\n", ".", " "]
+    )
+    # text_splitter = RecursiveCharacterTextSplitter(
+    #     chunk_size=configs["chunk_size"],
+    #     chunk_overlap=configs["chunk_overlap"],
+    #     separators=["\n\n", "\n", ".", " "]
+    # )
     chunks = text_splitter.split_text(text)
     return chunks
 
-def get_vector_store(chunks, model_name, file_id):
+def get_vector_store(chunks, model_name, file_id, file_name):
     try:
         index_path = "faiss_index"
         os.makedirs(index_path, exist_ok=True)
         index_file = os.path.join(index_path, model_name)
 
-        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-        new_store=FAISS.from_texts(chunks, embeddings)
+        # embeddings = CohereEmbeddings(model=env.EMBEDDING_MODEL)
+        embeddings = GoogleGenerativeAIEmbeddings(model=env.EMBEDDING_MODEL)
+        documents = [Document(page_content=chunk, metadata={"source": file_name}) for chunk in chunks]
+
+        new_store=FAISS.from_documents(
+            documents,
+            embeddings,
+            distance_strategy=DistanceStrategy.COSINE
+        )
 
         meta_dict = new_store.docstore._dict
         for key, val in meta_dict.items():
@@ -37,8 +72,6 @@ def get_vector_store(chunks, model_name, file_id):
                 doc_metadata[file_id] = [key]
             else:
                 doc_metadata[file_id].append(key)
-
-        print(doc_metadata)
 
         if os.path.exists(index_file):
             existing_store = FAISS.load_local(index_file, embeddings, allow_dangerous_deserialization=True)
@@ -52,7 +85,8 @@ def get_vector_store(chunks, model_name, file_id):
 
 def delete_index(model_name, file_id):
     file_path = os.path.join("faiss_index", model_name)
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    # embeddings = CohereEmbeddings(model=env.EMBEDDING_MODEL)
+    embeddings = GoogleGenerativeAIEmbeddings(model=env.EMBEDDING_MODEL)
 
     if os.path.exists(file_path):
         existing_store = FAISS.load_local(file_path, embeddings, allow_dangerous_deserialization=True)
